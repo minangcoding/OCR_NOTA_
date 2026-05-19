@@ -1,0 +1,241 @@
+<!DOCTYPE html>
+
+<html lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Audit Trail - RMS Admin</title>
+<!-- Tailwind CSS CDN -->
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<!-- Lucide Icons for clean, consistent UI icons -->
+<script src="https://unpkg.com/lucide@latest"></script>
+<style data-purpose="custom-typography">
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+    body {
+      font-family: 'Inter', sans-serif;
+    }
+  </style>
+<style data-purpose="sidebar-styles">
+    /* Custom styles for sidebar active state and hover effects */
+    .nav-item-active {
+      background-color: rgba(255, 255, 255, 0.15);
+      border-radius: 0.375rem;
+    }
+    .nav-item:hover {
+      background-color: rgba(255, 255, 255, 0.05);
+      border-radius: 0.375rem;
+    }
+  </style>
+<style data-purpose="timeline-styles">
+    /* Timeline visual elements */
+    .timeline-line {
+      position: absolute;
+      left: 178px;
+      top: 0;
+      bottom: 0;
+      width: 2px;
+      background-color: #D1D5DB;
+    }
+    .timeline-dot {
+      position: absolute;
+      left: 172px;
+      width: 14px;
+      height: 14px;
+      border-radius: 50%;
+      background-color: #fff;
+      border: 2px solid #9CA3AF;
+      z-index: 10;
+    }
+    .card-arrow {
+      position: absolute;
+      left: -8px;
+      top: 20px;
+      width: 16px;
+      height: 16px;
+      background-color: #fff;
+      transform: rotate(45deg);
+      border-left: 1px solid #E5E7EB;
+      border-bottom: 1px solid #E5E7EB;
+    }
+  </style>
+</head>
+<body class="bg-gray-50 flex h-screen overflow-hidden">
+<!-- BEGIN: Sidebar -->
+<aside class="w-64 bg-[#1e40af] text-white flex flex-col flex-shrink-0" data-purpose="main-sidebar">
+<!-- Logo Section -->
+<div class="p-6 flex items-center space-x-3">
+<div class="bg-white p-1.5 rounded-md"><i class="w-5 h-5 text-[#1e40af]" data-lucide="file-edit"></i></div>
+<span class="text-xl font-bold tracking-tight">RMS Admin</span>
+</div>
+<!-- Navigation Links -->
+<nav class="flex-1 px-4 py-4 space-y-2 overflow-y-auto">
+<a class="nav-item flex items-center px-4 py-2.5 space-x-3 opacity-70 hover:opacity-100 transition-all" data-purpose="nav-dashboard" href="dashboard.html">
+<i class="w-5 h-5" data-lucide="layout-dashboard"></i>
+<span class="font-medium">Dashboard</span>
+</a>
+<a class="nav-item flex items-center px-4 py-2.5 space-x-3 opacity-70 hover:opacity-100 transition-all" data-purpose="nav-users" href="user_management.html">
+<i class="w-5 h-5" data-lucide="users"></i>
+<span class="font-medium">Users</span>
+</a>
+<a class="nav-item flex items-center px-4 py-2.5 space-x-3 opacity-70 hover:opacity-100 transition-all" data-purpose="nav-categories" href="#">
+<i class="w-5 h-5" data-lucide="folder"></i>
+<span class="font-medium">Categories</span>
+</a>
+<a class="nav-item flex items-center px-4 py-2.5 space-x-3 opacity-70 hover:opacity-100 transition-all" data-purpose="nav-receipts" href="receipts.html">
+<i class="w-5 h-5" data-lucide="file-text"></i>
+<span class="font-medium">Receipts</span>
+</a>
+<a class="nav-item flex items-center px-4 py-2.5 space-x-3 opacity-70 hover:opacity-100 transition-all" data-purpose="nav-reports" href="reports.html">
+<i class="w-5 h-5" data-lucide="bar-chart-2"></i>
+<span class="font-medium">Reports</span>
+</a>
+<!-- Active State for Audit Trail -->
+<a class="nav-item nav-item-active flex items-center px-4 py-2.5 space-x-3" data-purpose="nav-audit" href="audit_trail.html">
+<i class="w-5 h-5" data-lucide="list"></i>
+<span class="font-medium">Audit Trail</span>
+</a>
+</nav>
+</aside>
+<!-- END: Sidebar -->
+<!-- Main Content Area -->
+<main class="flex-1 flex flex-col overflow-hidden">
+<!-- BEGIN: Top Navigation -->
+<header class="h-16 bg-white border-b border-gray-200 flex items-center justify-between px-8" data-purpose="header">
+<div class="relative w-96">
+<span class="absolute inset-y-0 left-0 flex items-center pl-3 text-gray-400">
+<i class="w-4 h-4" data-lucide="search"></i>
+</span>
+<input class="block w-full pl-10 pr-3 py-2 border border-gray-200 rounded-lg bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm" placeholder="Search" type="text"/>
+</div>
+<div class="flex items-center space-x-6">
+<button class="relative text-gray-500 hover:text-gray-700">
+<i class="w-6 h-6" data-lucide="bell"></i>
+<span class="absolute top-0 right-0 block h-2 w-2 rounded-full bg-red-500 border-2 border-white"></span>
+</button>
+<div class="flex items-center space-x-3 cursor-pointer">
+<div class="w-9 h-9 bg-gray-200 rounded-full flex items-center justify-center text-gray-600">
+<i class="w-5 h-5" data-lucide="user"></i>
+</div>
+<span class="text-sm font-semibold text-gray-700">Admin User</span>
+<i class="w-4 h-4 text-gray-400" data-lucide="chevron-down"></i>
+</div>
+</div>
+</header>
+<!-- END: Top Navigation -->
+<!-- Scrollable Body Content -->
+<div class="flex-1 overflow-y-auto p-8">
+<!-- BEGIN: Content Header Section -->
+<section class="mb-8" data-purpose="page-header">
+<div class="flex justify-between items-start">
+<div class="space-y-4">
+<!-- Breadcrumb -->
+<nav class="flex items-center gap-2 text-sm text-gray-500">
+<span class="cursor-pointer hover:text-blue-600">Receipts</span>
+<i class="w-3 h-3" data-lucide="chevron-right"></i>
+<span class="cursor-pointer hover:text-blue-600">Receipt #12345</span>
+<i class="w-3 h-3" data-lucide="chevron-right"></i>
+<span class="text-gray-900 font-medium">Audit Trail</span>
+</nav>
+<div class="space-y-1">
+<h1 class="text-2xl font-bold text-gray-800">Audit Trail History</h1>
+<p class="text-gray-500 text-sm">Timeline of changes for Receipt #12345 - Starbucks, Oct 15, 2023</p>
+</div>
+</div>
+<button class="bg-white border border-gray-300 px-4 py-2 rounded-lg text-sm font-semibold text-gray-700 hover:bg-gray-50 shadow-sm transition-all flex items-center space-x-2">
+<i class="w-4 h-4" data-lucide="arrow-left"></i>
+<span>Back to Receipt</span>
+</button>
+</div>
+</section>
+<!-- END: Content Header Section -->
+<!-- BEGIN: Timeline Section -->
+<section class="relative" data-purpose="timeline-container">
+<!-- Vertical Timeline Line -->
+<div class="timeline-line"></div>
+<div class="space-y-16 pb-12">
+<!-- Timeline Entry 1 (Sarah Chen) -->
+<div class="flex items-start gap-10 relative">
+<div class="w-40 text-right pt-2">
+<p class="text-gray-600 text-sm font-medium">Oct 20, 2023, 14:35 PM</p>
+</div>
+<!-- Timeline Node -->
+<div class="timeline-dot top-3"></div>
+<!-- Content Card -->
+<div class="flex-1 max-w-2xl bg-white rounded-xl border border-gray-200 shadow-sm p-5 relative">
+<div class="card-arrow"></div>
+<div class="flex flex-col gap-4">
+<p class="font-bold text-gray-800">Modified by: <span class="font-semibold">Sarah Chen</span></p>
+<div class="grid grid-cols-2 gap-x-8 border-t border-gray-100 pt-4">
+<div class="space-y-2">
+<p class="text-xs text-gray-500 uppercase mb-2">Data Sebelum</p>
+<div class="bg-red-100 text-red-800 px-3 py-2 rounded text-sm font-medium">Total Amount: $25.50</div>
+</div>
+<div class="space-y-2">
+<p class="text-xs text-gray-500 uppercase mb-2">Data Sesudah</p>
+<div class="bg-green-100 text-green-800 px-3 py-2 rounded text-sm font-medium">Total Amount: $28.00</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+<!-- Timeline Entry 2 (Mike Davis) -->
+<div class="flex items-start gap-10 relative">
+<div class="w-40 text-right pt-2">
+<p class="text-gray-600 text-sm font-medium">Oct 18, 2023, 09:12 AM</p>
+</div>
+<div class="timeline-dot top-3"></div>
+<div class="flex-1 max-w-2xl bg-white rounded-xl border border-gray-200 shadow-sm p-5 relative">
+<div class="card-arrow"></div>
+<div class="flex flex-col gap-4">
+<p class="font-bold text-gray-800">Modified by: <span class="font-semibold">Mike Davis</span></p>
+<div class="grid grid-cols-2 gap-x-8 border-t border-gray-100 pt-4">
+<div class="space-y-2">
+<p class="text-xs text-gray-500 uppercase mb-2">Data Sebelum</p>
+<div class="space-y-1">
+<div class="bg-red-100 text-red-800 px-3 py-2 rounded text-sm font-medium">Category: Meals</div>
+<div class="bg-red-100 text-red-800 px-3 py-2 rounded text-sm font-medium">Status: Pending</div>
+</div>
+</div>
+<div class="space-y-2">
+<p class="text-xs text-gray-500 uppercase mb-2">Data Sesudah</p>
+<div class="space-y-1">
+<div class="bg-green-100 text-green-800 px-3 py-2 rounded text-sm font-medium">Category: Travel</div>
+<div class="bg-green-100 text-green-800 px-3 py-2 rounded text-sm font-medium">Status: Approved</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+<!-- Timeline Entry 3 (John Doe - Creation) -->
+<div class="flex items-start gap-10 relative">
+<div class="w-40 text-right pt-2">
+<p class="text-gray-600 text-sm font-medium">Oct 15, 2023, 10:00 AM</p>
+</div>
+<div class="timeline-dot top-3"></div>
+<div class="flex-1 max-w-2xl bg-white rounded-xl border border-gray-200 shadow-sm p-5 relative">
+<div class="card-arrow"></div>
+<div class="flex flex-col gap-4">
+<p class="font-bold text-gray-800">Created by: <span class="font-semibold">John Doe</span></p>
+<div class="border-t border-gray-100 pt-4">
+<p class="text-xs text-gray-500 uppercase mb-2">Data Sesudah</p>
+<div class="grid grid-cols-2 gap-x-8 gap-y-2">
+<div class="bg-green-100 text-green-800 px-3 py-2 rounded text-sm font-medium">Vendor: Starbucks</div>
+<div class="bg-green-100 text-green-800 px-3 py-2 rounded text-sm font-medium">Category: Meals</div>
+<div class="bg-green-100 text-green-800 px-3 py-2 rounded text-sm font-medium">Date: Oct 15, 2023</div>
+<div class="bg-green-100 text-green-800 px-3 py-2 rounded text-sm font-medium">Status: Pending</div>
+<div class="bg-green-100 text-green-800 px-3 py-2 rounded text-sm font-medium">Total Amount: $25.50</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+</section>
+<!-- END: Timeline Section -->
+</div>
+</main>
+<script data-purpose="lucide-initialization">
+    // Initialize icons
+    lucide.createIcons();
+  </script>
+</body></html>

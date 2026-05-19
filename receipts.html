@@ -1,0 +1,380 @@
+<!DOCTYPE html>
+
+<html lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Receipts - RMS Admin</title>
+<!-- Tailwind CSS CDN -->
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<!-- Lucide Icons for clean, consistent UI icons -->
+<script src="https://unpkg.com/lucide@latest"></script>
+<style data-purpose="custom-typography">
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+    body {
+      font-family: 'Inter', sans-serif;
+    }
+  </style>
+<style data-purpose="sidebar-styles">
+    /* Custom styles for sidebar active state and hover effects */
+    .nav-item-active {
+      background-color: rgba(255, 255, 255, 0.15);
+      border-radius: 0.375rem;
+    }
+    .nav-item:hover {
+      background-color: rgba(255, 255, 255, 0.05);
+      border-radius: 0.375rem;
+    }
+  </style>
+<style data-purpose="custom-layout">
+    /* Subtle custom styles for table row hover and borders */
+    .table-container {
+      border: 1px solid #e5e7eb;
+      border-radius: 0.75rem;
+      overflow: hidden;
+      background-color: white;
+    }
+    .status-badge {
+      padding: 0.125rem 0.625rem;
+      border-radius: 9999px;
+      font-size: 0.75rem;
+      font-weight: 500;
+    }
+    .status-pending { background-color: #fef3c7; color: #92400e; }
+    .status-approved { background-color: #d1fae5; color: #065f46; }
+    .status-rejected { background-color: #fee2e2; color: #991b1b; }
+    
+    /* Category Icon Backgrounds */
+    .category-icon {
+      width: 24px;
+      height: 24px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 4px;
+      color: white;
+      font-size: 12px;
+    }
+    .bg-travel { background-color: #4f91a5; }
+    .bg-meals { background-color: #ca8a04; }
+    .bg-supplies { background-color: #7c3aed; }
+  </style>
+</head>
+<body class="bg-gray-50 flex h-screen overflow-hidden">
+<!-- BEGIN: Sidebar -->
+<aside class="w-64 bg-[#1e40af] text-white flex flex-col flex-shrink-0" data-purpose="main-sidebar">
+<!-- Logo Section -->
+<div class="p-6 flex items-center space-x-3">
+<div class="bg-white p-1.5 rounded-md"><i class="w-5 h-5 text-[#1e40af]" data-lucide="file-edit"></i></div>
+<span class="text-xl font-bold tracking-tight">RMS Admin</span>
+</div>
+<!-- Navigation Links -->
+<nav class="flex-1 px-4 py-4 space-y-2 overflow-y-auto">
+<a class="nav-item flex items-center px-4 py-2.5 space-x-3 opacity-70 hover:opacity-100 transition-all" data-purpose="nav-dashboard" href="dashboard.html">
+<i class="w-5 h-5" data-lucide="layout-dashboard"></i>
+<span class="font-medium">Dashboard</span>
+</a>
+<a class="nav-item flex items-center px-4 py-2.5 space-x-3 opacity-70 hover:opacity-100 transition-all" data-purpose="nav-users" href="user_management.html">
+<i class="w-5 h-5" data-lucide="users"></i>
+<span class="font-medium">Users</span>
+</a>
+<a class="nav-item flex items-center px-4 py-2.5 space-x-3 opacity-70 hover:opacity-100 transition-all" data-purpose="nav-categories" href="#">
+<i class="w-5 h-5" data-lucide="folder"></i>
+<span class="font-medium">Categories</span>
+</a>
+<!-- Active State for Receipts -->
+<a class="nav-item nav-item-active flex items-center px-4 py-2.5 space-x-3" data-purpose="nav-receipts" href="receipts.html">
+<i class="w-5 h-5" data-lucide="file-text"></i>
+<span class="font-medium">Receipts</span>
+</a>
+<a class="nav-item flex items-center px-4 py-2.5 space-x-3 opacity-70 hover:opacity-100 transition-all" data-purpose="nav-reports" href="reports.html">
+<i class="w-5 h-5" data-lucide="bar-chart-2"></i>
+<span class="font-medium">Reports</span>
+</a>
+<a class="nav-item flex items-center px-4 py-2.5 space-x-3 opacity-70 hover:opacity-100 transition-all" data-purpose="nav-audit" href="audit_trail.html">
+<i class="w-5 h-5" data-lucide="list"></i>
+<span class="font-medium">Audit Trail</span>
+</a>
+</nav>
+</aside>
+<!-- END: Sidebar -->
+<!-- Main Content Area -->
+<main class="flex-1 flex flex-col overflow-hidden">
+<!-- BEGIN: Top Navigation -->
+<header class="h-16 bg-white border-b border-gray-200 flex items-center justify-between px-8" data-purpose="header">
+<div class="relative w-96">
+<span class="absolute inset-y-0 left-0 flex items-center pl-3 text-gray-400">
+<i class="w-4 h-4" data-lucide="search"></i>
+</span>
+<input class="block w-full pl-10 pr-3 py-2 border border-gray-200 rounded-lg bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm" placeholder="Search" type="text"/>
+</div>
+<div class="flex items-center space-x-6">
+<button class="relative text-gray-500 hover:text-gray-700">
+<i class="w-6 h-6" data-lucide="bell"></i>
+<span class="absolute top-0 right-0 block h-2 w-2 rounded-full bg-red-500 border-2 border-white"></span>
+</button>
+<div class="flex items-center space-x-3 cursor-pointer">
+<div class="w-9 h-9 bg-gray-200 rounded-full flex items-center justify-center text-gray-600">
+<i class="w-5 h-5" data-lucide="user"></i>
+</div>
+<span class="text-sm font-semibold text-gray-700">Admin User</span>
+<i class="w-4 h-4 text-gray-400" data-lucide="chevron-down"></i>
+</div>
+</div>
+</header>
+<!-- END: Top Navigation -->
+<!-- Scrollable Body Content -->
+<div class="flex-1 overflow-y-auto p-8">
+<h1 class="text-2xl font-bold text-gray-800 mb-8">Receipts</h1>
+<!-- BEGIN: Filter Bar -->
+<section class="mb-8" data-purpose="filter-bar">
+<div class="flex flex-wrap items-end gap-4">
+<!-- Date Range -->
+<div class="flex flex-col gap-1.5">
+<label class="text-sm font-medium text-gray-700">Date Range</label>
+<div class="relative">
+<input class="block w-64 rounded-lg border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-sm py-2 pl-10 pr-10" readonly="" type="text" value="Oct 1, 2023 – Oct 31, 2023"/>
+<div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+<i class="w-4 h-4 text-gray-400" data-lucide="calendar"></i>
+</div>
+</div>
+</div>
+<!-- Period -->
+<div class="flex flex-col gap-1.5">
+<label class="text-sm font-medium text-gray-700">Period</label>
+<select class="block w-36 rounded-lg border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-sm py-2">
+<option>Monthly</option>
+<option>Weekly</option>
+<option>Quarterly</option>
+</select>
+</div>
+<!-- Requester -->
+<div class="flex flex-col gap-1.5">
+<label class="text-sm font-medium text-gray-700">Requester</label>
+<div class="relative">
+<div class="flex items-center w-56 rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm shadow-sm">
+<span class="truncate">Sarah Chen, Michael Lee...</span>
+<button class="ml-auto text-gray-400 hover:text-gray-600">
+<i class="w-4 h-4" data-lucide="x"></i>
+</button>
+<i class="w-4 h-4 ml-1 text-gray-400" data-lucide="chevron-down"></i>
+</div>
+</div>
+</div>
+<!-- Category -->
+<div class="flex flex-col gap-1.5">
+<label class="text-sm font-medium text-gray-700">Category</label>
+<select class="block w-52 rounded-lg border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-sm py-2">
+<option>Travel, Meals, Supplies...</option>
+</select>
+</div>
+<!-- Filter Actions -->
+<div class="flex gap-2 ml-auto">
+<button class="px-4 py-2 border border-gray-300 text-gray-700 text-sm font-medium rounded-lg bg-white hover:bg-gray-50">Clear All</button>
+<button class="px-4 py-2 bg-[#1e40af] text-white text-sm font-medium rounded-lg hover:bg-blue-800">Apply Filters</button>
+</div>
+</div>
+</section>
+<!-- END: Filter Bar -->
+<!-- BEGIN: Data Table -->
+<section class="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden" data-purpose="receipts-table-section">
+<div class="overflow-x-auto">
+<table class="w-full text-left border-collapse" id="receipts-table">
+<thead>
+<tr class="bg-gray-50 text-gray-800 text-sm font-semibold border-b border-gray-200">
+<th class="px-6 py-4 text-left">
+<div class="flex items-center gap-1">
+                  Date
+                  <i class="w-3 h-3" data-lucide="arrow-up"></i>
+</div>
+</th>
+<th class="px-6 py-4 text-left">Requester</th>
+<th class="px-6 py-4 text-left">Category</th>
+<th class="px-6 py-4 text-right">Amount</th>
+<th class="px-6 py-4 text-left">Status</th>
+<th class="px-6 py-4 text-left">Actions</th>
+</tr>
+</thead>
+<tbody class="text-gray-700 text-sm">
+<!-- Row 1: Pending Sarah -->
+<tr class="hover:bg-gray-50 transition-colors">
+<td class="px-6 py-4 border-b border-gray-100 text-gray-600">Oct 1, 2023</td>
+<td class="px-6 py-4 border-b border-gray-100">
+<div class="flex items-center gap-3">
+<img alt="Sarah Chen" class="h-8 w-8 rounded-full object-cover" src="https://lh3.googleusercontent.com/aida-public/AB6AXuAj8p_c4j1Gpei86ubBYt-JjNWEGzCGKrCgoFBOC93km2YDFYyXmc-DRq_PBzzwLYTP15fAD_bYMV2OmijYFlY21V6_JXH5sSIjmDvK9OXDh2wi9LKWl9kKjNlfuXuicgfqxZvGS6VQYz6U9MVPstfh2-H3Foimpl9PHcsABnpVgmBG3yR_AyS4jUw7kFvK3uJqB-DSw6k74Iufeb3P5vCInOQULo87NUGj0rpih02Xf0B5TtVjSw275gIf4vwAu-RaNqzzrdIQUec"/>
+<span class="font-medium text-gray-900">Sarah Chen</span>
+</div>
+</td>
+<td class="px-6 py-4 border-b border-gray-100">
+<div class="flex items-center gap-2">
+<div class="category-icon bg-travel">
+<i class="w-3 h-3" data-lucide="plane"></i>
+</div>
+<span class="text-gray-600">Travel</span>
+</div>
+</td>
+<td class="px-6 py-4 border-b border-gray-100 text-right font-medium text-gray-900">$129.00</td>
+<td class="px-6 py-4 border-b border-gray-100">
+<span class="status-badge status-pending">Pending</span>
+</td>
+<td class="px-6 py-4 border-b border-gray-100">
+<div class="flex gap-2">
+<button class="text-gray-700 bg-white border border-gray-300 px-3 py-1 rounded-md hover:bg-gray-50 text-xs">View Details</button>
+<button class="text-gray-700 bg-white border border-gray-300 px-3 py-1 rounded-md hover:bg-gray-50 text-xs">Edit</button>
+<button class="text-gray-700 bg-white border border-gray-300 px-3 py-1 rounded-md hover:bg-gray-50 flex items-center gap-1 text-xs">
+                    Export <i class="w-3 h-3" data-lucide="chevron-down"></i>
+</button>
+</div>
+</td>
+</tr>
+<!-- Row 2: Approved Michael (Meals) -->
+<tr class="hover:bg-gray-50 transition-colors">
+<td class="px-6 py-4 border-b border-gray-100 text-gray-600">Oct 31, 2023</td>
+<td class="px-6 py-4 border-b border-gray-100">
+<div class="flex items-center gap-3">
+<img alt="Michael Lee" class="h-8 w-8 rounded-full object-cover" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBPLeXRqmos0P8pl_wrYm_uZCEyvXnZw775EbXttq-24-mrkrzibyG5Wqe-1H59IBPm7WgCeGXBjUHIB3f_76G4UB7FXay79kkOGQLMIYMmea5ietci4igsudTPqumtSXC02H_hDsOaxPU4w8aWO5fm282SUpbpxGFXAzeLwlYlVub6NJJinzDLFTm8T2IIYmUVjQmonQSfO2qrzI0m6dP7fVpH8KWL5X8MCOwTRLB0KttHezSvo-JuqRvF7Q2vMWncSToSIZJcWXg"/>
+<span class="font-medium text-gray-900">Michael Lee</span>
+</div>
+</td>
+<td class="px-6 py-4 border-b border-gray-100">
+<div class="flex items-center gap-2">
+<div class="category-icon bg-meals">
+<i class="w-3 h-3" data-lucide="utensils"></i>
+</div>
+<span class="text-gray-600">Meals</span>
+</div>
+</td>
+<td class="px-6 py-4 border-b border-gray-100 text-right font-medium text-gray-900">$223.00</td>
+<td class="px-6 py-4 border-b border-gray-100">
+<span class="status-badge status-approved">Approved</span>
+</td>
+<td class="px-6 py-4 border-b border-gray-100">
+<div class="flex gap-2">
+<button class="text-gray-700 bg-white border border-gray-300 px-3 py-1 rounded-md hover:bg-gray-50 text-xs">View Details</button>
+<button class="text-gray-700 bg-white border border-gray-300 px-3 py-1 rounded-md hover:bg-gray-50 text-xs">Edit</button>
+<button class="text-gray-700 bg-white border border-gray-300 px-3 py-1 rounded-md hover:bg-gray-50 flex items-center gap-1 text-xs">
+                  Export <i class="w-3 h-3" data-lucide="chevron-down"></i>
+</button>
+</div>
+</td>
+</tr>
+<!-- Row 3: Approved Michael (Supplies) -->
+<tr class="hover:bg-gray-50 transition-colors">
+<td class="px-6 py-4 border-b border-gray-100 text-gray-600">Oct 31, 2023</td>
+<td class="px-6 py-4 border-b border-gray-100">
+<div class="flex items-center gap-3">
+<img alt="Michael Lee" class="h-8 w-8 rounded-full object-cover" src="https://lh3.googleusercontent.com/aida-public/AB6AXuAOyUs9Zv-u9bGGcS4xcscYekFG68L5yb7FzKWtIETBrgn486-m6ERIbtO6xuGMkWNlUUK-wCbGSqmrDfx8ImpAX-122hEPAc4VsbEJVb2Wr38G-FLUm0Eereypu4iOs_yt712QKZDhPucG6GNwAO6CbidI-FL6LKPrMNtVqMyGt-IzMNBMjRpN3Q_jcf4A8cXPsgmY8NoHLwyufeintmkQjHkSnw02V2UdBSXHgW23Vn-yvTZmus6Ypbge9VQEC__019QjaTrhgUs"/>
+<span class="font-medium text-gray-900">Michael Lee</span>
+</div>
+</td>
+<td class="px-6 py-4 border-b border-gray-100">
+<div class="flex items-center gap-2">
+<div class="category-icon bg-supplies">
+<i class="w-3 h-3" data-lucide="package"></i>
+</div>
+<span class="text-gray-600">Supplies</span>
+</div>
+</td>
+<td class="px-6 py-4 border-b border-gray-100 text-right font-medium text-gray-900">$139.00</td>
+<td class="px-6 py-4 border-b border-gray-100">
+<span class="status-badge status-approved">Approved</span>
+</td>
+<td class="px-6 py-4 border-b border-gray-100">
+<div class="flex gap-2">
+<button class="text-gray-700 bg-white border border-gray-300 px-3 py-1 rounded-md hover:bg-gray-50 text-xs">View Details</button>
+<button class="text-gray-700 bg-white border border-gray-300 px-3 py-1 rounded-md hover:bg-gray-50 text-xs">Edit</button>
+<button class="text-gray-700 bg-white border border-gray-300 px-3 py-1 rounded-md hover:bg-gray-50 flex items-center gap-1 text-xs">
+                  Export <i class="w-3 h-3" data-lucide="chevron-down"></i>
+</button>
+</div>
+</td>
+</tr>
+<!-- Row 4: Rejected Michael (Meals) -->
+<tr class="hover:bg-gray-50 transition-colors">
+<td class="px-6 py-4 border-b border-gray-100 text-gray-600">Oct 31, 2023</td>
+<td class="px-6 py-4 border-b border-gray-100">
+<div class="flex items-center gap-3">
+<img alt="Michael Lee" class="h-8 w-8 rounded-full object-cover" src="https://lh3.googleusercontent.com/aida-public/AB6AXuClY3zAZJh4g90SE-qjyBQT9Tmpj1PFOVTZwEqJsxBQTlq7A5oEw03nxJa0ZgnezfMqRXE4O5LsAhWHYVoJUdldTREeumAZsFb3mPhs_Ur8TqVXq9XIuBYgbwEGeQUt5_GcAqDy5-tguFL_2gdApb_lFdjFbXHz2M4P5eD4n9aXOY7lUoRM1ljww8orUHM6bzeB9BRHP_g9XaR0U3Tzr7VMQrWbcLMza48U-N9Aa1uj5UQP7V4FlSfrbcVYq8QTSzMnzeC06CPh_eo"/>
+<span class="font-medium text-gray-900">Michael Lee</span>
+</div>
+</td>
+<td class="px-6 py-4 border-b border-gray-100">
+<div class="flex items-center gap-2">
+<div class="category-icon bg-meals">
+<i class="w-3 h-3" data-lucide="utensils"></i>
+</div>
+<span class="text-gray-600">Meals</span>
+</div>
+</td>
+<td class="px-6 py-4 border-b border-gray-100 text-right font-medium text-gray-900">$287.00</td>
+<td class="px-6 py-4 border-b border-gray-100">
+<span class="status-badge status-rejected">Rejected</span>
+</td>
+<td class="px-6 py-4 border-b border-gray-100">
+<div class="flex gap-2">
+<button class="text-gray-700 bg-white border border-gray-300 px-3 py-1 rounded-md hover:bg-gray-50 text-xs">View Details</button>
+<button class="text-gray-700 bg-white border border-gray-300 px-3 py-1 rounded-md hover:bg-gray-50 text-xs">Edit</button>
+<button class="text-gray-700 bg-white border border-gray-300 px-3 py-1 rounded-md hover:bg-gray-50 flex items-center gap-1 text-xs">
+                  Export <i class="w-3 h-3" data-lucide="chevron-down"></i>
+</button>
+</div>
+</td>
+</tr>
+<!-- Row 5: Sarah Chen Supplies -->
+<tr class="hover:bg-gray-50 transition-colors">
+<td class="px-6 py-4 border-b border-gray-100 text-gray-600">Oct 31, 2023</td>
+<td class="px-6 py-4 border-b border-gray-100">
+<div class="flex items-center gap-3">
+<img alt="Sarah Chen" class="h-8 w-8 rounded-full object-cover" src="https://lh3.googleusercontent.com/aida-public/AB6AXuComJmkdrNrrhv_EV3Unk5VWgewovBvxTpkLGJf9uLndMyqVAE_-SolsG6qjw7fqCZwmLJ-GumgBsJsILIJDR0TYcu2QCb-vKyp0lIYTvKkwV9zPfifnwIgrt2O4HpIFDF8mJUnwrsjyWnazLlSLXRqL0Hdtbp2TiXPcYjWWjTWV1pmqIYOsuvs4L1KhD2uvdJ2ZPmtaXH8zBvsr7ZCsp4EJfCGSx8G88IZg1FcZu39hm253mjZrfMs2vfcSUb1DgIHil_y4vjNtbA"/>
+<span class="font-medium text-gray-900">Sarah Chen</span>
+</div>
+</td>
+<td class="px-6 py-4 border-b border-gray-100">
+<div class="flex items-center gap-2">
+<div class="category-icon bg-supplies">
+<i class="w-3 h-3" data-lucide="package"></i>
+</div>
+<span class="text-gray-600">Supplies</span>
+</div>
+</td>
+<td class="px-6 py-4 border-b border-gray-100 text-right font-medium text-gray-900">$139.00</td>
+<td class="px-6 py-4 border-b border-gray-100">
+<span class="status-badge status-approved">Approved</span>
+</td>
+<td class="px-6 py-4 border-b border-gray-100">
+<div class="flex gap-2">
+<button class="text-gray-700 bg-white border border-gray-300 px-3 py-1 rounded-md hover:bg-gray-50 text-xs">View Details</button>
+<button class="text-gray-700 bg-white border border-gray-300 px-3 py-1 rounded-md hover:bg-gray-50 text-xs">Edit</button>
+<button class="text-gray-700 bg-white border border-gray-300 px-3 py-1 rounded-md hover:bg-gray-50 flex items-center gap-1 text-xs">
+                  Export <i class="w-3 h-3" data-lucide="chevron-down"></i>
+</button>
+</div>
+</td>
+</tr>
+</tbody>
+</table>
+</div>
+</section>
+<!-- END: Data Table -->
+<!-- BEGIN: Pagination -->
+<footer class="mt-6 flex items-center justify-between" data-purpose="pagination">
+<div class="text-sm text-gray-600">
+          Showing 1-20 of 124 receipts
+        </div>
+<nav aria-label="Pagination" class="flex items-center space-x-1">
+<button class="px-3 py-1.5 border border-gray-300 rounded-md bg-white text-gray-500 hover:bg-gray-50 text-sm font-medium">Previous</button>
+<button class="px-3 py-1.5 bg-[#1e40af] text-white rounded-md text-sm font-medium">1</button>
+<button class="px-3 py-1.5 border border-gray-300 rounded-md bg-white text-gray-700 hover:bg-gray-50 text-sm font-medium">2</button>
+<button class="px-3 py-1.5 border border-gray-300 rounded-md bg-white text-gray-700 hover:bg-gray-50 text-sm font-medium">3</button>
+<span class="px-2 text-gray-500">...</span>
+<button class="px-3 py-1.5 border border-gray-300 rounded-md bg-white text-gray-700 hover:bg-gray-50 text-sm font-medium">7</button>
+<button class="px-3 py-1.5 border border-gray-300 rounded-md bg-white text-gray-700 hover:bg-gray-50 text-sm font-medium">Next</button>
+</nav>
+</footer>
+<!-- END: Pagination -->
+</div>
+</main>
+<script data-purpose="lucide-initialization">
+  // Initialize Lucide icons
+  lucide.createIcons();
+</script>
+</body></html>
