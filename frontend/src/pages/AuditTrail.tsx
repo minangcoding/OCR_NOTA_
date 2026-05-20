@@ -4,6 +4,17 @@ import { Loader2, FileText, ChevronDown, ChevronUp, RotateCcw, AlertTriangle, Tr
 import api from '../services/api';
 import { Link } from 'react-router-dom';
 
+type AuditItem = {
+  item_name: string;
+  qty: number;
+  price: number;
+  subtotal: number;
+};
+
+type DiffItem =
+  | (AuditItem & { status: 'added' | 'removed' | 'unchanged' })
+  | (AuditItem & { status: 'modified'; prev: AuditItem });
+
 export default function AuditTrail() {
   const queryClient = useQueryClient();
   const [expandedNotes, setExpandedNotes] = useState<Record<string, boolean>>({});
@@ -67,8 +78,8 @@ export default function AuditTrail() {
     }));
   };
 
-  const renderItemDiff = (prevItems: { item_name: string; qty: number; price: number; subtotal: number }[] = [], currItems: { item_name: string; qty: number; price: number; subtotal: number }[] = []) => {
-    const currentList = currItems.map(c => {
+  const renderItemDiff = (prevItems: AuditItem[] = [], currItems: AuditItem[] = []) => {
+    const currentList: DiffItem[] = currItems.map((c): DiffItem => {
       const prev = prevItems.find(p => p.item_name === c.item_name);
       if (!prev) return { ...c, status: 'added' };
       if (prev.qty !== c.qty || prev.price !== c.price || prev.subtotal !== c.subtotal) {
@@ -77,7 +88,7 @@ export default function AuditTrail() {
       return { ...c, status: 'unchanged' };
     });
 
-    const removedList = prevItems
+    const removedList: DiffItem[] = prevItems
       .filter(p => !currItems.find(c => c.item_name === p.item_name))
       .map(p => ({ ...p, status: 'removed' }));
 

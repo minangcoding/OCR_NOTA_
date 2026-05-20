@@ -5,11 +5,11 @@ import multer from 'multer';
 const storage = multer.memoryStorage();
 
 const fileFilter = (req: any, file: Express.Multer.File, cb: multer.FileFilterCallback) => {
-  const allowedMimeTypes = ['image/jpeg', 'image/png', 'image/jpg'];
+  const allowedMimeTypes = ['image/jpeg', 'image/png', 'image/jpg', 'application/pdf'];
   if (allowedMimeTypes.includes(file.mimetype)) {
     cb(null, true);
   } else {
-    cb(new Error('Only JPG and PNG images are allowed'));
+    cb(new Error('Only JPG, PNG, and PDF files are allowed'));
   }
 };
 

@@ -1,10 +1,11 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { useForm, useFieldArray } from 'react-hook-form';
-import { zodResolver } from '@hookform/resolvers/zod';
-import * as z from 'zod';
+import { zodResolver } from '../lib/zodResolver';
+import * as z from 'zod/v4';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { useNavigate, useParams } from 'react-router-dom';
 import api from '../services/api';
+import { useAuthStore } from '../store/authStore';
 import { UploadCloud, Plus, Trash2, ArrowLeft, Loader2, Camera, X, FolderOpen } from 'lucide-react';
 
 const noteItemSchema = z.object({
@@ -25,10 +26,280 @@ const noteSchema = z.object({
 
 type NoteFormValues = z.infer<typeof noteSchema>;
 
+const MAX_UPLOAD_DIMENSION = 1100;
+const MIN_UPLOAD_DIMENSION = 760;
+const JPEG_QUALITY = 0.72;
+const MIN_JPEG_QUALITY = 0.52;
+const MAX_UPLOAD_BYTES = 450 * 1024;
+const apiBaseURL = import.meta.env.VITE_API_BASE_URL || '/api';
+
+type OcrItem = NoteFormValues['items'][number];
+type UploadPayload = { blob: Blob | File, name: string };
+
+const toNumber = (value: unknown, fallback = 0) => {
+  if (typeof value === 'string') {
+    const normalized = value
+      .replace(/[^\d,.-]/g, '')
+      .replace(/\.(?=\d{3}(\D|$))/g, '')
+      .replace(',', '.');
+    const numberValue = Number(normalized);
+    return Number.isFinite(numberValue) ? numberValue : fallback;
+  }
+
+  const numberValue = typeof value === 'number' ? value : Number(value);
+  return Number.isFinite(numberValue) ? numberValue : fallback;
+};
+
+const normalizeOcrItems = (items: unknown): OcrItem[] => {
+  const itemList = Array.isArray(items)
+    ? items
+    : items && typeof items === 'object'
+      ? Object.values(items)
+      : [];
+
+  return itemList
+    .map((item): OcrItem | null => {
+      if (!item || typeof item !== 'object') return null;
+
+      const rawItem = item as Record<string, unknown>;
+      const rawName = rawItem.item_name ?? rawItem.itemName ?? rawItem.name ?? rawItem.description;
+      const itemName = typeof rawName === 'string' && rawName.trim()
+        ? rawName.trim()
+        : 'Unrecognized Item';
+      const qty = Math.max(1, toNumber(rawItem.qty ?? rawItem.quantity, 1));
+      const price = Math.max(0, toNumber(rawItem.price ?? rawItem.unit_price ?? rawItem.unitPrice));
+      const subtotal = Math.max(0, toNumber(rawItem.subtotal ?? rawItem.total, qty * price));
+
+      return { item_name: itemName, qty, price, subtotal };
+    })
+    .filter((item): item is OcrItem => item !== null);
+};
+
+const normalizeOcrDate = (date: unknown) => {
+  if (typeof date !== 'string' || !date.trim()) return '';
+
+  const trimmedDate = date.trim();
+  const numericDate = trimmedDate.match(/^(\d{1,2})[/-](\d{1,2})[/-](\d{2,4})$/);
+  if (numericDate) {
+    const [, day, month, year] = numericDate;
+    const fullYear = year.length === 2 ? `20${year}` : year;
+    return `${fullYear}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`;
+  }
+
+  const parsed = new Date(trimmedDate);
+  if (Number.isNaN(parsed.getTime())) return '';
+
+  return parsed.toISOString().split('T')[0];
+};
+
+const getOcrText = (data: Record<string, unknown>, ...keys: string[]) => {
+  for (const key of keys) {
+    const value = data[key];
+    if (typeof value === 'string' && value.trim()) {
+      return value.trim();
+    }
+  }
+
+  return '';
+};
+
+const getOcrValue = (data: Record<string, unknown>, ...keys: string[]) => {
+  for (const key of keys) {
+    if (data[key] !== undefined && data[key] !== null) {
+      return data[key];
+    }
+  }
+
+  return undefined;
+};
+
+const ocrShapeKeys = [
+  'date', 'tanggal', 'transaction_date', 'invoice_date', 'receipt_date',
+  'buyer_name', 'buyerName', 'store_name', 'storeName', 'merchant_name',
+  'items', 'line_items', 'lineItems', 'products', 'details',
+  'total', 'total_amount', 'grand_total', 'amount',
+];
+
+const nestedOcrKeys = [
+  'ocrData', 'data', 'result', 'receipt', 'receipt_data', 'receiptData',
+  'invoice', 'transaction', 'extracted_data', 'extractedData',
+];
+
+const hasOcrShape = (data: Record<string, unknown>) => (
+  ocrShapeKeys.some((key) => data[key] !== undefined)
+);
+
+const extractOcrData = (value: unknown): Record<string, unknown> => {
+  if (Array.isArray(value)) return { items: value };
+  if (!value || typeof value !== 'object') return {};
+
+  const record = value as Record<string, unknown>;
+  if (hasOcrShape(record)) return record;
+
+  for (const key of nestedOcrKeys) {
+    const nested = record[key];
+    if (nested && typeof nested === 'object') {
+      const nestedRecord = extractOcrData(nested);
+      if (hasOcrShape(nestedRecord)) return nestedRecord;
+    }
+  }
+
+  return record;
+};
+
+const canvasToJpegBlob = (canvas: HTMLCanvasElement, quality: number) => (
+  new Promise<Blob>((resolve, reject) => {
+    canvas.toBlob((blob) => {
+      if (blob) {
+        resolve(blob);
+      } else {
+        reject(new Error('Failed to prepare image for upload'));
+      }
+    }, 'image/jpeg', quality);
+  })
+);
+
+const compressSourceToJpeg = async (
+  source: CanvasImageSource,
+  sourceWidth: number,
+  sourceHeight: number,
+  name = 'scanned_receipt.jpg',
+): Promise<UploadPayload> => {
+  let maxDimension = MAX_UPLOAD_DIMENSION;
+  let quality = JPEG_QUALITY;
+  let lastBlob: Blob | null = null;
+
+  for (let attempt = 0; attempt < 10; attempt += 1) {
+    const ratio = Math.min(1, maxDimension / sourceWidth, maxDimension / sourceHeight);
+    const width = Math.max(1, Math.round(sourceWidth * ratio));
+    const height = Math.max(1, Math.round(sourceHeight * ratio));
+    const canvas = document.createElement('canvas');
+    canvas.width = width;
+    canvas.height = height;
+
+    const ctx = canvas.getContext('2d', { alpha: false });
+    if (!ctx) {
+      throw new Error('Failed to prepare image canvas');
+    }
+
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(0, 0, width, height);
+    ctx.drawImage(source, 0, 0, width, height);
+
+    lastBlob = await canvasToJpegBlob(canvas, quality);
+    if (lastBlob.size <= MAX_UPLOAD_BYTES) {
+      break;
+    }
+
+    if (quality > MIN_JPEG_QUALITY) {
+      quality = Math.max(MIN_JPEG_QUALITY, Number((quality - 0.08).toFixed(2)));
+    } else if (maxDimension > MIN_UPLOAD_DIMENSION) {
+      maxDimension = Math.max(MIN_UPLOAD_DIMENSION, Math.floor(maxDimension * 0.85));
+      quality = JPEG_QUALITY;
+    } else {
+      break;
+    }
+  }
+
+  if (!lastBlob) {
+    throw new Error('Failed to prepare image for upload');
+  }
+
+  return { blob: lastBlob, name };
+};
+
+const loadImageFromFile = (file: File) => (
+  new Promise<HTMLImageElement>((resolve, reject) => {
+    const objectUrl = URL.createObjectURL(file);
+    const img = new Image();
+
+    img.onload = () => {
+      URL.revokeObjectURL(objectUrl);
+      resolve(img);
+    };
+    img.onerror = () => {
+      URL.revokeObjectURL(objectUrl);
+      reject(new Error('Failed to read camera image'));
+    };
+    img.src = objectUrl;
+  })
+);
+
+const compressImageFileForUpload = async (file: File): Promise<UploadPayload> => {
+  const img = await loadImageFromFile(file);
+  const width = img.naturalWidth || img.width;
+  const height = img.naturalHeight || img.height;
+  return compressSourceToJpeg(img, width, height);
+};
+
+const buildApiUrl = (path: string) => `${apiBaseURL.replace(/\/$/, '')}${path}`;
+const OCR_POLL_INTERVAL_MS = 1500;
+const OCR_POLL_TIMEOUT_MS = 10 * 60 * 1000;
+
+const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
+const fetchApiJson = async (path: string, init?: RequestInit) => {
+  const token = useAuthStore.getState().token;
+  const headers = new Headers(init?.headers);
+  if (token) {
+    headers.set('Authorization', `Bearer ${token}`);
+  }
+
+  const response = await fetch(buildApiUrl(path), {
+    ...init,
+    headers,
+  });
+
+  const result = await response.json().catch(() => null);
+
+  if (response.status === 401) {
+    useAuthStore.getState().logout();
+    window.location.href = '/login';
+    throw new Error('Session expired. Please login again.');
+  }
+
+  if (!response.ok) {
+    throw new Error(result?.message || 'Request failed');
+  }
+
+  return result;
+};
+
+const uploadReceiptImage = async (payload: UploadPayload) => {
+  const formData = new FormData();
+  formData.append('image', payload.blob, payload.name);
+
+  const startResult = await fetchApiJson('/notes/upload/async', {
+    method: 'POST',
+    body: formData,
+  });
+
+  const jobId = startResult?.data?.jobId;
+  if (!jobId) throw new Error('OCR job could not be started');
+
+  const startedAt = Date.now();
+  while (Date.now() - startedAt < OCR_POLL_TIMEOUT_MS) {
+    await sleep(OCR_POLL_INTERVAL_MS);
+    const statusResult = await fetchApiJson(`/notes/upload/jobs/${jobId}`);
+    const job = statusResult?.data;
+
+    if (job?.status === 'completed' && job.result) {
+      return job.result;
+    }
+
+    if (job?.status === 'failed') {
+      throw new Error(job.error || 'OCR processing failed');
+    }
+  }
+
+  throw new Error('OCR processing took too long. Please try again with a clearer photo.');
+};
+
 export default function NoteForm() {
   const navigate = useNavigate();
   const { id } = useParams();
   const isEditMode = !!id;
+  const currentUser = useAuthStore((state) => state.user);
   
   const [uploading, setUploading] = useState(false);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
@@ -106,7 +377,7 @@ export default function NoteForm() {
     setIsCameraOpen(false);
   };
 
-  const takePhoto = () => {
+  const takePhoto = async () => {
     if (!videoRef.current) return;
 
     const video = videoRef.current;
@@ -117,32 +388,15 @@ export default function NoteForm() {
       return;
     }
 
-    // Scale down large phone camera images (e.g. 4032x3024) to max 1200px width
-    // to prevent upload timeouts and speed up OCR processing
-    const MAX_DIM = 1200;
-    let cw = video.videoWidth;
-    let ch = video.videoHeight;
-    if (cw > MAX_DIM || ch > MAX_DIM) {
-      const ratio = Math.min(MAX_DIM / cw, MAX_DIM / ch);
-      cw = Math.round(cw * ratio);
-      ch = Math.round(ch * ratio);
-    }
+    setUploading(true);
 
-    const canvas = document.createElement('canvas');
-    canvas.width = cw;
-    canvas.height = ch;
-    const ctx = canvas.getContext('2d');
-    if (ctx) {
-      ctx.drawImage(video, 0, 0, cw, ch);
-      canvas.toBlob((blob) => {
-        if (blob) {
-          stopCamera();
-          setUploading(true);
-          uploadMutation.mutate({ blob, name: "scanned_receipt.jpg" });
-        } else {
-          alert('Failed to capture photo. Please try uploading an image file instead.');
-        }
-      }, 'image/jpeg', 0.75);
+    try {
+      const payload = await compressSourceToJpeg(video, video.videoWidth, video.videoHeight);
+      stopCamera();
+      uploadMutation.mutate(payload);
+    } catch {
+      setUploading(false);
+      alert('Failed to capture photo. Please try uploading an image file instead.');
     }
   };
 
@@ -154,7 +408,7 @@ export default function NoteForm() {
     watch,
     formState: { errors },
   } = useForm<NoteFormValues>({
-    resolver: zodResolver(noteSchema),
+    resolver: zodResolver<NoteFormValues>(noteSchema),
     defaultValues: {
       date: '',
       buyer_name: '',
@@ -200,7 +454,7 @@ export default function NoteForm() {
     enabled: isEditMode
   });
 
-  const { fields, append, remove } = useFieldArray({
+  const { fields, append, remove, replace } = useFieldArray({
     control,
     name: "items"
   });
@@ -208,6 +462,7 @@ export default function NoteForm() {
   // eslint-disable-next-line react-hooks/incompatible-library
   const items = watch('items');
   const total = items.reduce((sum, item) => sum + (Number(item.qty || 0) * Number(item.price || 0)), 0);
+  const isPdfPreview = imagePreview?.startsWith('data:application/pdf');
 
   // Fetch Categories for dropdown
   const { data: categories } = useQuery({
@@ -227,40 +482,84 @@ export default function NoteForm() {
   };
 
   const uploadMutation = useMutation({
-    mutationFn: async (payload: { blob: Blob | File, name: string }) => {
-      const formData = new FormData();
-      formData.append('image', payload.blob, payload.name);
-      // Remove hardcoded Content-Type header so Axios can automatically 
-      // set the multipart boundary. Without the boundary, multer hangs.
-      const res = await api.post('/notes/upload', formData);
-      return res.data.data;
-    },
+    mutationFn: uploadReceiptImage,
     onSuccess: (data) => {
-      // Data contains { imageUrl, ocrData }
-      setImagePreview(data.imageUrl);
-      setValue('image_url', data.imageUrl);
-      
-      // Auto fill form with Mock OCR data
-      if (data.ocrData) {
-        setValue('date', data.ocrData.date);
-        setValue('buyer_name', data.ocrData.buyer_name);
-        setValue('requester_name', data.ocrData.requester_name);
-        
-        // Remove existing items and add from OCR
-        const ocrItems = data.ocrData.items.map((i: { item_name: string; qty: number; price: number; subtotal: number }) => ({
-          item_name: i.item_name,
-          qty: i.qty,
-          price: i.price,
-          subtotal: i.subtotal
-        }));
-        
-        setValue('items', ocrItems);
+      try {
+        const imageUrl = typeof data?.imageUrl === 'string' ? data.imageUrl : '';
+        if (imageUrl) {
+          setImagePreview(imageUrl);
+          setValue('image_url', imageUrl, { shouldValidate: true });
+        }
+
+        const ocrData = data?.ocrData;
+        if (ocrData && typeof ocrData === 'object') {
+          const rawOcr = extractOcrData(ocrData);
+
+          const ocrDate = normalizeOcrDate(getOcrValue(rawOcr, 'date', 'tanggal', 'transaction_date', 'transactionDate', 'invoice_date', 'receipt_date'));
+          if (ocrDate) {
+            setValue('date', ocrDate, { shouldValidate: true });
+          }
+
+          const buyerName = getOcrText(
+            rawOcr,
+            'buyer_name',
+            'buyerName',
+            'store_name',
+            'storeName',
+            'merchant_name',
+            'merchantName',
+            'supplier_name',
+            'vendor_name',
+            'nama_pembeli',
+            'nama_toko',
+            'nama_merchant',
+            'seller_name',
+          );
+          if (buyerName) {
+            setValue('buyer_name', buyerName, { shouldValidate: true });
+          }
+
+          const requesterName = getOcrText(rawOcr, 'requester_name', 'requesterName', 'requester', 'nama_requester')
+            || currentUser?.name
+            || buyerName;
+          if (requesterName) {
+            setValue('requester_name', requesterName, { shouldValidate: true });
+          }
+
+          const totalAmount = Math.max(0, toNumber(getOcrValue(
+            rawOcr,
+            'total',
+            'total_amount',
+            'totalAmount',
+            'grand_total',
+            'grandTotal',
+            'amount',
+            'total_belanja',
+            'total_tagihan',
+            'jumlah',
+          )));
+          const ocrItems = normalizeOcrItems(getOcrValue(rawOcr, 'items', 'line_items', 'lineItems', 'products', 'details', 'item_details'));
+          if (ocrItems.length > 0) {
+            replace(ocrItems);
+            setValue('items', ocrItems, { shouldValidate: true });
+          } else if (totalAmount > 0) {
+            const fallbackItems = [{ item_name: 'Unrecognized Items', qty: 1, price: totalAmount, subtotal: totalAmount }];
+            replace(fallbackItems);
+            setValue('items', fallbackItems, { shouldValidate: true });
+          }
+        }
+      } catch (error) {
+        console.warn('OCR response could not be applied to the form:', error);
+      } finally {
+        setUploading(false);
       }
-      setUploading(false);
     },
     onError: (err: unknown) => {
       setUploading(false);
-      alert('Failed to upload image: ' + (err as Error).message);
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const error = err as any;
+      const message = error.response?.data?.message || error.message;
+      alert('Failed to upload image: ' + message);
     }
   });
 
@@ -269,48 +568,25 @@ export default function NoteForm() {
     mutationFn: (data: any) => isEditMode ? api.patch(`/notes/${id}`, data) : api.post('/notes', data),
   });
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files && e.target.files[0]) {
-      const file = e.target.files[0];
-      setUploading(true);
-
-      // Resize large images from phone camera/gallery before uploading
-      if (file.type.startsWith('image/')) {
-        const img = new Image();
-        img.onload = () => {
-          const MAX_DIM = 1200;
-          let w = img.width;
-          let h = img.height;
-          if (w > MAX_DIM || h > MAX_DIM) {
-            const ratio = Math.min(MAX_DIM / w, MAX_DIM / h);
-            w = Math.round(w * ratio);
-            h = Math.round(h * ratio);
-          }
-          const canvas = document.createElement('canvas');
-          canvas.width = w;
-          canvas.height = h;
-          const ctx = canvas.getContext('2d');
-          if (ctx) {
-            ctx.drawImage(img, 0, 0, w, h);
-            canvas.toBlob((blob) => {
-              if (blob) {
-                uploadMutation.mutate({ blob, name: file.name });
-              } else {
-                uploadMutation.mutate({ blob: file, name: file.name }); // fallback to original
-              }
-            }, 'image/jpeg', 0.75);
-          } else {
-            uploadMutation.mutate({ blob: file, name: file.name });
-          }
-        };
-        img.onerror = () => uploadMutation.mutate({ blob: file, name: file.name }); // fallback
-        img.src = URL.createObjectURL(file);
-      } else {
-        uploadMutation.mutate({ blob: file, name: file.name });
-      }
-    }
-    // Reset input value so the same file can be selected again
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
     e.target.value = '';
+    if (!file) return;
+
+    setUploading(true);
+
+    try {
+      if (file.type === 'application/pdf') {
+        uploadMutation.mutate({ blob: file, name: file.name });
+        return;
+      }
+
+      const payload = await compressImageFileForUpload(file);
+      uploadMutation.mutate(payload);
+    } catch {
+      setUploading(false);
+      alert('Failed to read camera image. Please set your phone camera format to JPG/Most Compatible, then try again.');
+    }
   };
 
   const onSubmit = async (data: NoteFormValues) => {
@@ -423,7 +699,13 @@ export default function NoteForm() {
               ) : (
                 // Tampilan Gambar yang Sudah Diupload
                 <div className="relative group rounded-2xl overflow-hidden border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-[#252525] h-full min-h-[400px] flex items-center justify-center">
-                  <img src={imagePreview} alt="Receipt Preview" className="w-full h-auto object-contain max-h-[600px]" />
+                  {isPdfPreview ? (
+                    <object data={imagePreview} type="application/pdf" className="w-full h-[600px] max-h-[600px]">
+                      <span className="text-sm text-gray-500 dark:text-gray-400">PDF preview unavailable</span>
+                    </object>
+                  ) : (
+                    <img src={imagePreview} alt="Receipt Preview" className="w-full h-auto object-contain max-h-[600px]" />
+                  )}
                   <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center backdrop-blur-sm">
                     <div className="flex flex-col gap-3 w-48">
                       <button 

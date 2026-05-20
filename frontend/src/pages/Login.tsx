@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useForm as useHookForm } from 'react-hook-form';
-import { zodResolver } from '@hookform/resolvers/zod';
-import * as z from 'zod';
+import { zodResolver } from '../lib/zodResolver';
+import * as z from 'zod/v4';
 import { useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../store/authStore';
 import api from '../services/api';
@@ -25,7 +25,7 @@ export default function Login() {
     handleSubmit,
     formState: { errors },
   } = useHookForm<LoginFormValues>({
-    resolver: zodResolver(loginSchema),
+    resolver: zodResolver<LoginFormValues>(loginSchema),
   });
 
   const onSubmit = async (data: LoginFormValues) => {

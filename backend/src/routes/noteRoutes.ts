@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { uploadNoteImage, createNote, getNotes, getNoteById, updateNote, deleteNote, getNoteAuditTrail, getAllAuditTrails, restoreNote, permanentDeleteNote } from '../controllers/NoteController';
+import { uploadNoteImage, uploadNoteImageAsync, getUploadJobStatus, createNote, getNotes, getNoteById, updateNote, deleteNote, getNoteAuditTrail, getAllAuditTrails, restoreNote, permanentDeleteNote } from '../controllers/NoteController';
 import { verifyToken, requireAdmin } from '../middlewares/auth';
 import { upload } from '../middlewares/upload';
 
@@ -13,6 +13,13 @@ router.post('/upload', (req, res, next) => {
   console.log('>>> [BACKEND] Request hitting /upload route (Before Multer parsing...)');
   next();
 }, upload.single('image'), uploadNoteImage);
+
+router.post('/upload/async', (req, res, next) => {
+  console.log('>>> [BACKEND] Request hitting async /upload route (Before Multer parsing...)');
+  next();
+}, upload.single('image'), uploadNoteImageAsync);
+
+router.get('/upload/jobs/:jobId', getUploadJobStatus);
 
 // Note operations
 router.get('/', getNotes);

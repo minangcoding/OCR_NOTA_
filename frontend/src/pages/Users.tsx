@@ -1,8 +1,8 @@
 import { useState, useRef, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useForm } from 'react-hook-form';
-import { zodResolver } from '@hookform/resolvers/zod';
-import * as z from 'zod';
+import { zodResolver } from '../lib/zodResolver';
+import * as z from 'zod/v4';
 import api from '../services/api';
 import { Plus, Pencil, Trash2, X, Loader2, UserCircle2, Users as UsersIcon, UserCheck, Filter, Search } from 'lucide-react';
 import { useSearchStore } from '../store/searchStore';
@@ -11,7 +11,7 @@ const userSchema = z.object({
   name: z.string().min(2, 'Name must be at least 2 characters'),
   email: z.string().email('Invalid email address'),
   role: z.enum(['admin', 'operator']),
-  is_active: z.boolean().default(true),
+  is_active: z.boolean(),
   password: z.string().min(6, 'Password must be at least 6 characters').optional().or(z.literal('')),
 });
 
@@ -51,7 +51,7 @@ export default function Users() {
     reset,
     formState: { errors },
   } = useForm<UserFormValues>({
-    resolver: zodResolver(userSchema),
+    resolver: zodResolver<UserFormValues>(userSchema),
   });
 
   const { data: usersData, isLoading } = useQuery({

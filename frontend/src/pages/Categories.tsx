@@ -1,16 +1,16 @@
 import { useState, useEffect, useRef } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useForm } from 'react-hook-form';
-import { zodResolver } from '@hookform/resolvers/zod';
-import * as z from 'zod';
+import { zodResolver } from '../lib/zodResolver';
+import * as z from 'zod/v4';
 import api from '../services/api';
 import { Search, Plus, Pencil, Trash2, X, Loader2, Folder, Tag, FolderOpen, Filter } from 'lucide-react';
 
 const categorySchema = z.object({
   name: z.string().min(2, 'Name must be at least 2 characters'),
   code: z.string().min(1, 'Code is required').toUpperCase(),
-  type: z.enum(['COA Project', 'COA Vendor']).default('COA Project'),
-  is_active: z.boolean().default(true),
+  type: z.enum(['COA Project', 'COA Vendor']),
+  is_active: z.boolean(),
 });
 
 type CategoryFormValues = z.infer<typeof categorySchema>;
@@ -54,7 +54,7 @@ export default function Categories() {
     reset,
     formState: { errors },
   } = useForm<CategoryFormValues>({
-    resolver: zodResolver(categorySchema),
+    resolver: zodResolver<CategoryFormValues>(categorySchema),
   });
 
   const { data: categoriesData, isLoading } = useQuery({

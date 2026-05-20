@@ -1,9 +1,11 @@
 import axios from 'axios';
 import { useAuthStore } from '../store/authStore';
 
+const apiBaseURL = import.meta.env.VITE_API_BASE_URL || '/api';
+
 const api = axios.create({
-  baseURL: `http://${window.location.hostname}:3000/api`, // Dynamically use the host IP for local network testing
-  timeout: 60000, // 60 seconds timeout (OCR AI takes time to process images)
+  baseURL: apiBaseURL,
+  timeout: 600000, // OCR AI and report exports can take time on local network/mobile testing
 });
 
 // Interceptor Request: Otomatis tambahkan token JWT ke header jika ada

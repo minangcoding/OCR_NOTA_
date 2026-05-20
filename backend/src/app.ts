@@ -13,7 +13,8 @@ import notificationRoutes from './routes/notificationRoutes';
 dotenv.config();
 
 const app = express();
-const PORT = process.env.PORT || 3000;
+const PORT = process.env.PORT || 4000;
+const OCR_REQUEST_TIMEOUT_MS = Number(process.env.OCR_REQUEST_TIMEOUT_MS || 600000);
 
 // Middlewares
 app.use(cors());
@@ -52,6 +53,10 @@ app.use((err: any, req: Request, res: Response, next: express.NextFunction) => {
   });
 });
 
-app.listen(Number(PORT), '0.0.0.0', () => {
+const server = app.listen(Number(PORT), '0.0.0.0', () => {
   console.log(`Server is running on http://0.0.0.0:${PORT}`);
 });
+
+server.timeout = OCR_REQUEST_TIMEOUT_MS;
+server.requestTimeout = OCR_REQUEST_TIMEOUT_MS;
+server.headersTimeout = OCR_REQUEST_TIMEOUT_MS + 1000;

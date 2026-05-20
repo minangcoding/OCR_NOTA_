@@ -22,6 +22,11 @@ export const login = async (req: Request, res: Response): Promise<void> => {
       return;
     }
 
+    if (!user.is_active) {
+      sendError(res, 403, 'Account is inactive');
+      return;
+    }
+
     const isMatch = await bcrypt.compare(password, user.password);
     if (!isMatch) {
       sendError(res, 401, 'Invalid credentials');
@@ -35,7 +40,12 @@ export const login = async (req: Request, res: Response): Promise<void> => {
       role: user.role,
     };
 
-    const secret = process.env.JWT_SECRET || 'super_secret_jwt_key_untuk_rms_admin_2026';
+    const secret = process.env.JWT_SECRET;
+    if (!secret) {
+      sendError(res, 500, 'JWT secret is not configured');
+      return;
+    }
+
     const token = jwt.sign(payload, secret, { expiresIn: '1d' });
 
     sendSuccess(res, { token, user: payload }, 'Login successful');
