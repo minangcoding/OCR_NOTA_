@@ -20,7 +20,11 @@ export const verifyToken = (req: AuthRequest, res: Response, next: NextFunction)
     }
 
     const token = authHeader.split(' ')[1];
-    const secret = process.env.JWT_SECRET || 'super_secret_jwt_key_untuk_rms_admin_2026';
+    const secret = process.env.JWT_SECRET;
+    if (!secret) {
+      sendError(res, 500, 'JWT secret is not configured');
+      return;
+    }
 
     const decoded = jwt.verify(token, secret) as AuthRequest['user'];
     req.user = decoded;

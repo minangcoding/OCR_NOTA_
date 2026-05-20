@@ -7,12 +7,13 @@ async function main() {
   console.log('Start seeding...');
 
   // 1. Seed Admin User
-  const adminPassword = await bcrypt.hash('admin123', 10);
+  const adminEmail = process.env.SEED_ADMIN_EMAIL || 'admin@gmail.com';
+  const adminPassword = await bcrypt.hash(process.env.SEED_ADMIN_PASSWORD || 'admin123', 10);
   const admin = await prisma.user.upsert({
-    where: { email: 'admin@gmail.com' },
+    where: { email: adminEmail },
     update: {},
     create: {
-      email: 'admin@gmail.com',
+      email: adminEmail,
       name: 'System Admin',
       password: adminPassword,
       role: 'admin',
@@ -28,8 +29,10 @@ async function main() {
     { name: 'Maintenance', code: 'MNT' }
   ];
   for (const cat of categoriesData) {
-    await prisma.category.create({
-      data: {
+    await prisma.category.upsert({
+      where: { code: cat.code },
+      update: {},
+      create: {
         name: cat.name,
         code: cat.code,
         is_active: true
@@ -41,12 +44,15 @@ async function main() {
   // 3. Seed some People (Buyers/Requesters)
   const peopleData = ['John Doe', 'Jane Smith', 'Acme Corp'];
   for (const personName of peopleData) {
-    await prisma.person.create({
-      data: {
-        name: personName,
-      },
-    });
-    console.log(`Created person: ${personName}`);
+    const existingPerson = await prisma.person.findFirst({ where: { name: personName } });
+    if (!existingPerson) {
+      await prisma.person.create({
+        data: {
+          name: personName,
+        },
+      });
+      console.log(`Created person: ${personName}`);
+    }
   }
 
   console.log('Seeding finished.');

@@ -179,8 +179,8 @@ export default function Reports() {
                     </Pie>
                     <Tooltip
                       contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
-                      formatter={(value: number, name: string) => [
-                        `Rp ${value.toLocaleString('id-ID')}`,
+                      formatter={(value, name) => [
+                        `Rp ${Number(value ?? 0).toLocaleString('id-ID')}`,
                         name,
                       ]}
                     />
@@ -239,7 +239,7 @@ export default function Reports() {
                   <YAxis tick={{ fontSize: 11, fontWeight: 600, fill: '#9ca3af' }} stroke="none" tickFormatter={(v) => `${(v / 1000).toFixed(0)}K`} />
                   <Tooltip 
                     contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)', fontWeight: 'bold' }}
-                    formatter={(value: number) => `Rp ${value.toLocaleString('id-ID')}`} 
+                    formatter={(value) => `Rp ${Number(value ?? 0).toLocaleString('id-ID')}`}
                   />
                   <Area type="monotone" dataKey="total" stroke="#a60016" strokeWidth={3} fillOpacity={1} fill="url(#colorTotal)" />
                 </AreaChart>
@@ -271,7 +271,7 @@ export default function Reports() {
                 ) : !txData?.notes?.length ? (
                   <tr><td colSpan={6} className="px-6 py-12 text-center font-medium text-gray-500 dark:text-gray-400">No transactions found for this period.</td></tr>
                 ) : (
-                  txData.notes.map((n: { id: string; date: string; buyer: { name: string }; requester: { name: string }; category: { name: string }; total: number; createdBy: { name: string } }) => (
+                  txData.notes.map((n: { id: string; date: string; buyer: { name: string }; requester: { name: string }; category: { name: string }; total: number; user?: { name: string } }) => (
                     <tr key={n.id} className="hover:bg-gray-50/80 dark:hover:bg-[#202022] transition-colors bg-white dark:bg-[#1a1a1c] border-b border-gray-100 dark:border-gray-800 last:border-0">
                       <td className="px-6 py-4 font-medium text-gray-600 dark:text-gray-400">{new Date(n.date).toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric' })}</td>
                       <td className="px-6 py-4 font-bold text-[14px] text-[#1e293b] dark:text-white">{n.buyer.name}</td>

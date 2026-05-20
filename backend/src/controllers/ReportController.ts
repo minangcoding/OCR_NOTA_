@@ -150,7 +150,11 @@ export const getDashboardStats = async (req: Request, res: Response): Promise<vo
       orderBy: { created_at: 'desc' },
       skip: (page - 1) * limit,
       take: limit,
-      include: {
+      select: {
+        id: true,
+        date: true,
+        total: true,
+        created_at: true,
         buyer: { select: { name: true } },
         requester: { select: { name: true } },
         category: { select: { name: true } },
@@ -198,7 +202,11 @@ export const getTransactions = async (req: Request, res: Response): Promise<void
         skip: (page - 1) * limit,
         take: limit,
         orderBy: { date: 'desc' },
-        include: {
+        select: {
+          id: true,
+          date: true,
+          total: true,
+          created_at: true,
           buyer: { select: { name: true } },
           requester: { select: { name: true } },
           category: { select: { name: true, code: true } },
@@ -239,12 +247,22 @@ export const exportExcel = async (req: Request, res: Response): Promise<void> =>
     const notes = await prisma.note.findMany({
       where,
       orderBy: { date: 'desc' },
-      include: {
+      select: {
+        id: true,
+        date: true,
+        total: true,
         buyer: { select: { name: true } },
         requester: { select: { name: true } },
         category: { select: { name: true } },
         user: { select: { name: true } },
-        items: true,
+        items: {
+          select: {
+            item_name: true,
+            qty: true,
+            price: true,
+            subtotal: true,
+          }
+        },
       }
     });
 
@@ -328,7 +346,10 @@ export const exportPdf = async (req: Request, res: Response): Promise<void> => {
     const notes = await prisma.note.findMany({
       where,
       orderBy: { date: 'desc' },
-      include: {
+      select: {
+        id: true,
+        date: true,
+        total: true,
         buyer: { select: { name: true } },
         requester: { select: { name: true } },
         category: { select: { name: true } },
