@@ -1,5 +1,5 @@
 import { useAuthStore } from "../../store/authStore";
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import api from "../../services/api";
@@ -48,6 +48,7 @@ export default function Header({
 
   const dropdownRef = useRef<HTMLDivElement>(null);
   const notifRef = useRef<HTMLDivElement>(null);
+  const prevUnreadCountRef = useRef<number>(-1); // -1 = belum diinisialisasi
 
   // Fetch Notifications
   const { data: notifications = [] } = useQuery<Notification[]>({
@@ -71,6 +72,62 @@ export default function Header({
   });
 
   const unreadCount = notifications.filter((n) => !n.is_read).length;
+
+  // Mainkan suara notifikasi via Web Audio API (tanpa file audio eksternal)
+  const playNotificationSound = useCallback(() => {
+    try {
+      const AudioContextClass =
+        window.AudioContext ||
+        (window as unknown as { webkitAudioContext: typeof AudioContext })
+          .webkitAudioContext;
+      if (!AudioContextClass) return;
+
+      const ctx = new AudioContextClass();
+
+      const beep = (
+        startTime: number,
+        freq: number,
+        duration: number,
+        volume: number,
+      ) => {
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        osc.type = "sine";
+        osc.frequency.value = freq;
+        gain.gain.setValueAtTime(0, startTime);
+        gain.gain.linearRampToValueAtTime(volume, startTime + 0.01);
+        gain.gain.linearRampToValueAtTime(volume, startTime + duration - 0.04);
+        gain.gain.linearRampToValueAtTime(0, startTime + duration);
+        osc.start(startTime);
+        osc.stop(startTime + duration);
+      };
+
+      // Dua nada: C6 → E6 (bunyi ding-ding)
+      beep(ctx.currentTime, 1047, 0.14, 0.28); // nada pertama
+      beep(ctx.currentTime + 0.18, 1319, 0.14, 0.22); // nada kedua (lebih tinggi)
+
+      // Tutup AudioContext setelah selesai agar tidak bocor memori
+      setTimeout(() => ctx.close(), 800);
+    } catch {
+      // Diam saja jika browser tidak mendukung
+    }
+  }, []);
+
+  // Deteksi notifikasi baru dan mainkan suara
+  useEffect(() => {
+    // Pertama kali load: simpan hitungan awal, jangan bunyikan
+    if (prevUnreadCountRef.current === -1) {
+      prevUnreadCountRef.current = unreadCount;
+      return;
+    }
+    // Jika jumlah unread bertambah → ada notifikasi baru
+    if (unreadCount > prevUnreadCountRef.current) {
+      playNotificationSound();
+    }
+    prevUnreadCountRef.current = unreadCount;
+  }, [unreadCount, playNotificationSound]);
 
   const handleLogout = () => {
     logout();
