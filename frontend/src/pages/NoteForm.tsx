@@ -1108,11 +1108,9 @@ export default function NoteForm() {
       const imageUrl = note.image_url || "";
 
       if (imageUrl) {
-        setImagePreview(
-          imageUrl.startsWith("data:")
-            ? imageUrl
-            : `http://${window.location.hostname}:4000${imageUrl}`,
-        );
+        // Path relatif: bekerja di dev (Vite proxy /uploads)
+        // dan production (Nginx /uploads) tanpa hardcode port
+        setImagePreview(imageUrl);
       }
 
       setReceipts([

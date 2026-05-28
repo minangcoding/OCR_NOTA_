@@ -22,6 +22,10 @@ export default defineConfig({
         timeout: OCR_PROXY_TIMEOUT_MS,
         proxyTimeout: OCR_PROXY_TIMEOUT_MS,
       },
+      "/uploads": {
+        target: "http://localhost:4000",
+        changeOrigin: true,
+      },
     },
   },
 });
